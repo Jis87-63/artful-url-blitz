@@ -1,36 +1,19 @@
 import { UrlShortener } from "@/components/UrlShortener";
-import { Link2 } from "lucide-react";
+import { Header } from "@/components/Header";
+import { Hero } from "@/components/Hero";
+import { Footer } from "@/components/Footer";
 
 const Index = () => {
   return (
-    <div className="min-h-screen bg-gradient-hero">
-      <div className="container mx-auto px-4 py-12">
-        <header className="text-center mb-12 space-y-4">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <div className="p-3 bg-gradient-primary rounded-2xl shadow-elegant">
-              <Link2 className="h-8 w-8 text-white" />
-            </div>
-          </div>
-          <h1 className="text-5xl md:text-6xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-            Encurtador de Links
-          </h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Transforme seus links longos em URLs curtas e compartilháveis em segundos
-          </p>
-        </header>
-
+    <div className="min-h-screen bg-gradient-hero flex flex-col">
+      <Header />
+      
+      <main className="flex-1 container mx-auto px-4 pt-24 pb-12">
+        <Hero />
         <UrlShortener />
+      </main>
 
-        <footer className="mt-16 text-center">
-          <div className="inline-flex items-center gap-2 text-sm text-muted-foreground bg-card px-6 py-3 rounded-full shadow-card">
-            <span>Rápido</span>
-            <span>•</span>
-            <span>Seguro</span>
-            <span>•</span>
-            <span>Gratuito</span>
-          </div>
-        </footer>
-      </div>
+      <Footer />
     </div>
   );
 };
