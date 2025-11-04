@@ -1,23 +1,48 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Link2, Copy, CheckCheck, ExternalLink } from "lucide-react";
+import { Link2, Copy, CheckCheck, ExternalLink, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ShortenedLink {
   id: string;
-  original: string;
-  shortened: string;
+  short_code: string;
+  original_url: string;
   clicks: number;
-  createdAt: Date;
+  created_at: string;
 }
 
 export const UrlShortener = () => {
   const [url, setUrl] = useState("");
   const [isShortening, setIsShortening] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [links, setLinks] = useState<ShortenedLink[]>([]);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Load existing links on mount
+  useEffect(() => {
+    loadLinks();
+  }, []);
+
+  const loadLinks = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('links')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+      setLinks(data || []);
+    } catch (error) {
+      console.error('Error loading links:', error);
+      toast.error('Erro ao carregar links');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const generateShortCode = () => {
     const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -50,26 +75,39 @@ export const UrlShortener = () => {
 
     setIsShortening(true);
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    const shortCode = generateShortCode();
-    const newLink: ShortenedLink = {
-      id: shortCode,
-      original: url,
-      shortened: `short.link/${shortCode}`,
-      clicks: 0,
-      createdAt: new Date(),
-    };
+    try {
+      const shortCode = generateShortCode();
+      
+      const { data, error } = await supabase
+        .from('links')
+        .insert({
+          short_code: shortCode,
+          original_url: url,
+        })
+        .select()
+        .single();
 
-    setLinks([newLink, ...links]);
-    setUrl("");
-    setIsShortening(false);
-    toast.success("Link encurtado com sucesso!");
+      if (error) throw error;
+
+      setLinks([data, ...links]);
+      setUrl("");
+      toast.success("Link encurtado com sucesso!");
+    } catch (error: any) {
+      console.error('Error shortening URL:', error);
+      if (error.code === '23505') {
+        // Unique constraint violation - try again with new code
+        handleShorten();
+        return;
+      }
+      toast.error("Erro ao encurtar link. Tente novamente.");
+    } finally {
+      setIsShortening(false);
+    }
   };
 
-  const handleCopy = async (shortened: string, id: string) => {
-    await navigator.clipboard.writeText(`https://${shortened}`);
+  const handleCopy = async (shortCode: string, id: string) => {
+    const fullUrl = `${window.location.origin}/r/${shortCode}`;
+    await navigator.clipboard.writeText(fullUrl);
     setCopiedId(id);
     toast.success("Link copiado!");
     setTimeout(() => setCopiedId(null), 2000);
@@ -101,7 +139,11 @@ export const UrlShortener = () => {
         </div>
       </Card>
 
-      {links.length > 0 && (
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : links.length > 0 ? (
         <div className="space-y-4">
           <h2 className="text-2xl font-semibold text-foreground">Links Recentes</h2>
           <div className="space-y-3">
@@ -114,12 +156,12 @@ export const UrlShortener = () => {
                   <div className="flex-1 min-w-0 space-y-2">
                     <div className="flex items-center gap-2">
                       <span className="text-2xl font-bold text-primary">
-                        {link.shortened}
+                        {window.location.origin}/r/{link.short_code}
                       </span>
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleCopy(link.shortened, link.id)}
+                        onClick={() => handleCopy(link.short_code, link.id)}
                         className="hover:bg-primary/10"
                       >
                         {copiedId === link.id ? (
@@ -131,13 +173,13 @@ export const UrlShortener = () => {
                     </div>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <ExternalLink className="h-4 w-4" />
-                      <span className="truncate">{link.original}</span>
+                      <span className="truncate">{link.original_url}</span>
                     </div>
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
                       <span>{link.clicks} cliques</span>
                       <span>•</span>
                       <span>
-                        {new Date(link.createdAt).toLocaleDateString("pt-BR")}
+                        {new Date(link.created_at).toLocaleDateString("pt-BR")}
                       </span>
                     </div>
                   </div>
@@ -146,7 +188,7 @@ export const UrlShortener = () => {
             ))}
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 };
